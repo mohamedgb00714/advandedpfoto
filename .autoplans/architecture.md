@@ -1,30 +1,22 @@
 # Architecture
 
 ## System Design
-
-This is a React application built with modern web technologies.
+The application is a client-side image editor using React for the UI and Fabric.js for the canvas manipulation.
 
 ## Technology Stack
-
 | Layer | Technology |
 |-------|------------|
 | Frontend | React 18 |
-| Build Tool | Vite |
+| Canvas Engine | Fabric.js |
 | UI Components | Shadcn UI |
 | Styling | Tailwind CSS |
-| Language | TypeScript |
+| Icons | Lucide React |
 
 ## Key Components
-
-Document your major components and their interactions here as you build the application.
+- **Index Page**: Main editor layout with sidebar, toolbar, and canvas.
+- **Fabric Canvas**: Handles image rendering, object manipulation, and drawing.
+- **History Manager**: Simple JSON-based undo/redo stack.
 
 ## Design Patterns
-
-1. **Component Structure**: Organize components by feature
-2. **State Management**: Use React hooks and context
-3. **Styling**: Utility-first with Tailwind CSS
-
----
-
-*Last updated: {{TIMESTAMP}}*
-*Managed by autoplans.dev*
+1. **Tool-based State**: Active tool determines canvas interaction mode (select vs drawing).
+2. **Ref-based Canvas**: Using `useRef` to maintain the Fabric.js instance across renders.

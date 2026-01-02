@@ -1,16 +1,20 @@
 # Tasks
 
 ## Current Tasks
+- [x] **Project Planning** [Priority: high]
+  Define the overall architecture, features, and technology stack for the simple Photoshop web application.
+- [x] **Implement Image Upload and Display** [Priority: high]
+  Allow users to upload images and display them on an editable canvas.
+- [ ] **Implement Basic Editing Tools** [Priority: high]
+  Add tools for cropping, resizing, and rotating images.
+- [ ] **Implement Image Filters** [Priority: medium]
+  Apply basic filters like brightness, contrast, grayscale, and blur.
+- [ ] **Implement Drawing Tools** [Priority: medium]
+  Enable freehand drawing, erasing, and color selection on the canvas.
+- [ ] **Implement Save and Export** [Priority: medium]
+  Allow users to download the edited image in various formats.
 
-No tasks yet. Add tasks here as you work on the project.
-
-### How to Manage Tasks
-
-1. Use `autoplans_create_task` to add new tasks
-2. Use `autoplans_update_task` to update status
-3. Use `autoplans_list_tasks` to view all tasks
-
----
-
-*Last updated: {{TIMESTAMP}}*
-*Managed by autoplans.dev*
+## Completed
+- [x] Set Up Development Environment
+- [x] Design High-Level Architecture
+- [x] Render Image on Canvas
