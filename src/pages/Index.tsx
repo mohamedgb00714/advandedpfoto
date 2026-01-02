@@ -85,6 +85,7 @@ const Index = () => {
     const dataURL = canvas.toDataURL({
       format: 'png',
       quality: 1,
+      multiplier: 1,
     });
     const link = document.createElement('a');
     link.download = 'edited-image.png';
