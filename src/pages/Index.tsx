@@ -19,7 +19,8 @@ import {
   Type as TextIcon,
   Shapes,
   ArrowUpRight,
-  Wind
+  Wind,
+  Layers
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -97,7 +98,7 @@ const Index = () => {
         canvas.isDrawingMode = true;
         canvas.freeDrawingBrush = new fabric.PencilBrush(canvas);
         canvas.freeDrawingBrush.width = brushSize;
-        canvas.freeDrawingBrush.color = '#ffffff'; // Simple eraser for white background
+        canvas.freeDrawingBrush.color = '#ffffff'; 
       } else {
         canvas.isDrawingMode = false;
       }
@@ -246,6 +247,22 @@ const Index = () => {
     }
   };
 
+  const bringToFront = () => {
+    const activeObject = canvas?.getActiveObject();
+    if (activeObject) {
+      activeObject.bringToFront();
+      canvas?.renderAll();
+    }
+  };
+
+  const sendToBack = () => {
+    const activeObject = canvas?.getActiveObject();
+    if (activeObject) {
+      activeObject.sendToBack();
+      canvas?.renderAll();
+    }
+  };
+
   return (
     <div className="flex h-screen bg-zinc-50 dark:bg-zinc-950 overflow-hidden">
       {/* Sidebar */}
@@ -329,6 +346,24 @@ const Index = () => {
             <TooltipContent side="right">Rotate</TooltipContent>
           </Tooltip>
 
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="ghost" size="icon">
+                <Layers className="h-5 w-5" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent side="right" className="w-40 p-2">
+              <div className="flex flex-col gap-2">
+                <Button variant="ghost" size="sm" onClick={bringToFront} className="justify-start">
+                  Bring to Front
+                </Button>
+                <Button variant="ghost" size="sm" onClick={sendToBack} className="justify-start">
+                  Send to Back
+                </Button>
+              </div>
+            </PopoverContent>
+          </Popover>
+
           <Tooltip>
             <TooltipTrigger asChild>
               <Button variant="ghost" size="icon" onClick={() => canvas?.remove(canvas.getActiveObject()!)}>
@@ -394,7 +429,7 @@ const Index = () => {
 
       {/* Right Panel */}
       <aside className="w-72 border-l bg-white dark:bg-zinc-900 p-4 overflow-y-auto">
-        <Tabs defaultValue="adjust">
+        <Tabs defaultValue="tools">
           <TabsList className="w-full">
             <TabsTrigger value="adjust" className="flex-1">Adjust</TabsTrigger>
             <TabsTrigger value="tools" className="flex-1">Tools</TabsTrigger>
@@ -437,45 +472,50 @@ const Index = () => {
 
           <TabsContent value="tools" className="space-y-6 py-4">
             <div className="space-y-4">
-              <Label>Object Color (Fill/Stroke)</Label>
+              <Label className="text-sm font-bold">Object Color (Fill/Stroke)</Label>
               <div className="flex flex-wrap gap-2">
-                {['#000000', '#ffffff', '#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff'].map((color) => (
+                {['#000000', '#ffffff', '#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff', '#3b82f6', '#10b981', '#f59e0b'].map((color) => (
                   <button
                     key={color}
-                    className={`w-8 h-8 rounded-full border ${selectedObjectColor === color ? 'ring-2 ring-primary' : ''}`}
+                    className={`w-8 h-8 rounded-full border-2 ${selectedObjectColor === color ? 'border-primary scale-110' : 'border-transparent'}`}
                     style={{ backgroundColor: color }}
                     onClick={() => changeObjectColor(color)}
                   />
                 ))}
-                <input 
-                  type="color" 
-                  value={selectedObjectColor} 
-                  onChange={(e) => changeObjectColor(e.target.value)}
-                  className="w-8 h-8 rounded-full overflow-hidden border-none p-0 cursor-pointer"
-                />
+                <div className="relative w-8 h-8 rounded-full overflow-hidden border-2 border-zinc-200">
+                  <input 
+                    type="color" 
+                    value={selectedObjectColor} 
+                    onChange={(e) => changeObjectColor(e.target.value)}
+                    className="absolute inset-0 w-full h-full scale-150 cursor-pointer"
+                  />
+                </div>
               </div>
             </div>
 
             <Separator />
 
             <div className="space-y-4">
-              <Label>Brush Size</Label>
-              <Slider 
-                value={[brushSize]} 
-                onValueChange={(v) => setBrushSize(v[0])} 
-                max={50} 
-                min={1} 
-                step={1} 
-              />
-            </div>
-
-            <div className="space-y-4">
-              <Label>Brush Color</Label>
-              <div className="flex flex-wrap gap-2">
-                {['#000000', '#ffffff', '#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff'].map((color) => (
+              <Label className="text-sm font-bold">Brush Settings</Label>
+              <div className="space-y-2">
+                <div className="flex justify-between text-xs">
+                  <span>Size</span>
+                  <span>{brushSize}px</span>
+                </div>
+                <Slider 
+                  value={[brushSize]} 
+                  onValueChange={(v) => setBrushSize(v[0])} 
+                  max={50} 
+                  min={1} 
+                  step={1} 
+                />
+              </div>
+              
+              <div className="flex flex-wrap gap-2 mt-2">
+                {['#000000', '#ffffff', '#ff0000', '#00ff00', '#0000ff', '#ffff00'].map((color) => (
                   <button
                     key={color}
-                    className={`w-8 h-8 rounded-full border ${brushColor === color ? 'ring-2 ring-primary' : ''}`}
+                    className={`w-6 h-6 rounded-full border ${brushColor === color ? 'ring-2 ring-primary' : ''}`}
                     style={{ backgroundColor: color }}
                     onClick={() => setBrushColor(color)}
                   />
@@ -484,7 +524,7 @@ const Index = () => {
                   type="color" 
                   value={brushColor} 
                   onChange={(e) => setBrushColor(e.target.value)}
-                  className="w-8 h-8 rounded-full overflow-hidden border-none p-0 cursor-pointer"
+                  className="w-6 h-6 rounded-full overflow-hidden border-none p-0 cursor-pointer"
                 />
               </div>
             </div>
