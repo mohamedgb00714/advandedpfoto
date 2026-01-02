@@ -15,7 +15,14 @@ import {
   Trash2,
   Layers,
   Settings2,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Sun,
+  Contrast,
+  Palette,
+  Maximize,
+  RotateCw,
+  Type as TextIcon,
+  Shapes
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -25,6 +32,7 @@ import { Slider } from '@/components/ui/slider';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { showSuccess, showError } from '@/utils/toast';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 const Index = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -32,6 +40,8 @@ const Index = () => {
   const [activeTool, setActiveTool] = useState('select');
   const [history, setHistory] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
+  const [brushSize, setBrushSize] = useState(5);
+  const [brushColor, setBrushColor] = useState('#000000');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Initialize Canvas
@@ -59,6 +69,15 @@ const Index = () => {
       };
     }
   }, []);
+
+  // Update brush settings when they change
+  useEffect(() => {
+    if (canvas && canvas.isDrawingMode) {
+      canvas.freeDrawingBrush = new fabric.PencilBrush(canvas);
+      canvas.freeDrawingBrush.width = brushSize;
+      canvas.freeDrawingBrush.color = brushColor;
+    }
+  }, [canvas, brushSize, brushColor]);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -118,6 +137,58 @@ const Index = () => {
     if (!canvas) return;
     canvas.isDrawingMode = isDrawing;
     setActiveTool(isDrawing ? 'pencil' : 'select');
+    if (isDrawing) {
+      canvas.freeDrawingBrush = new fabric.PencilBrush(canvas);
+      canvas.freeDrawingBrush.width = brushSize;
+      canvas.freeDrawingBrush.color = brushColor;
+    }
+  };
+
+  const addText = () => {
+    if (!canvas) return;
+    const text = new fabric.IText('Type here...', {
+      left: 100,
+      top: 100,
+      fontFamily: 'Arial',
+      fill: brushColor,
+    });
+    canvas.add(text);
+    canvas.setActiveObject(text);
+    setActiveTool('select');
+    setDrawingMode(false);
+  };
+
+  const addShape = (type: 'rect' | 'circle') => {
+    if (!canvas) return;
+    let shape;
+    if (type === 'rect') {
+      shape = new fabric.Rect({
+        left: 100,
+        top: 100,
+        fill: brushColor,
+        width: 100,
+        height: 100,
+      });
+    } else {
+      shape = new fabric.Circle({
+        left: 100,
+        top: 100,
+        fill: brushColor,
+        radius: 50,
+      });
+    }
+    canvas.add(shape);
+    canvas.setActiveObject(shape);
+    setActiveTool('select');
+    setDrawingMode(false);
+  };
+
+  const rotateObject = () => {
+    const activeObject = canvas?.getActiveObject();
+    if (activeObject) {
+      activeObject.rotate((activeObject.angle || 0) + 90);
+      canvas?.requestRenderAll();
+    }
   };
 
   return (
@@ -149,6 +220,42 @@ const Index = () => {
               </Button>
             </TooltipTrigger>
             <TooltipContent side="right">Draw</TooltipContent>
+          </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" onClick={addText}>
+                <TextIcon className="h-5 w-5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="right">Add Text</TooltipContent>
+          </Tooltip>
+
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="ghost" size="icon">
+                <Shapes className="h-5 w-5" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent side="right" className="w-40 p-2">
+              <div className="flex flex-col gap-2">
+                <Button variant="ghost" size="sm" onClick={() => addShape('rect')} className="justify-start">
+                  <Square className="h-4 w-4 mr-2" /> Rectangle
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => addShape('circle')} className="justify-start">
+                  <Circle className="h-4 w-4 mr-2" /> Circle
+                </Button>
+              </div>
+            </PopoverContent>
+          </Popover>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" onClick={rotateObject}>
+                <RotateCw className="h-5 w-5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="right">Rotate</TooltipContent>
           </Tooltip>
 
           <Tooltip>
@@ -215,17 +322,19 @@ const Index = () => {
       </main>
 
       {/* Right Panel */}
-      <aside className="w-72 border-l bg-white dark:bg-zinc-900 p-4">
+      <aside className="w-72 border-l bg-white dark:bg-zinc-900 p-4 overflow-y-auto">
         <Tabs defaultValue="adjust">
           <TabsList className="w-full">
             <TabsTrigger value="adjust" className="flex-1">Adjust</TabsTrigger>
-            <TabsTrigger value="layers" className="flex-1">Layers</TabsTrigger>
+            <TabsTrigger value="tools" className="flex-1">Tools</TabsTrigger>
           </TabsList>
           
           <TabsContent value="adjust" className="space-y-6 py-4">
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <Label>Brightness</Label>
+                <Label className="flex items-center gap-2">
+                  <Sun className="h-4 w-4" /> Brightness
+                </Label>
                 <span className="text-xs text-muted-foreground">0%</span>
               </div>
               <Slider defaultValue={[0]} max={100} step={1} />
@@ -233,7 +342,9 @@ const Index = () => {
 
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <Label>Contrast</Label>
+                <Label className="flex items-center gap-2">
+                  <Contrast className="h-4 w-4" /> Contrast
+                </Label>
                 <span className="text-xs text-muted-foreground">0%</span>
               </div>
               <Slider defaultValue={[0]} max={100} step={1} />
@@ -241,17 +352,45 @@ const Index = () => {
 
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <Label>Saturation</Label>
+                <Label className="flex items-center gap-2">
+                  <Palette className="h-4 w-4" /> Saturation
+                </Label>
                 <span className="text-xs text-muted-foreground">0%</span>
               </div>
               <Slider defaultValue={[0]} max={100} step={1} />
             </div>
           </TabsContent>
 
-          <TabsContent value="layers" className="py-4">
-            <div className="text-center py-8 text-muted-foreground">
-              <Layers className="h-12 w-12 mx-auto mb-2 opacity-20" />
-              <p className="text-sm">No layers yet</p>
+          <TabsContent value="tools" className="space-y-6 py-4">
+            <div className="space-y-4">
+              <Label>Brush Size</Label>
+              <Slider 
+                value={[brushSize]} 
+                onValueChange={(v) => setBrushSize(v[0])} 
+                max={50} 
+                min={1} 
+                step={1} 
+              />
+            </div>
+
+            <div className="space-y-4">
+              <Label>Brush Color</Label>
+              <div className="flex flex-wrap gap-2">
+                {['#000000', '#ffffff', '#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff'].map((color) => (
+                  <button
+                    key={color}
+                    className={`w-8 h-8 rounded-full border ${brushColor === color ? 'ring-2 ring-primary' : ''}`}
+                    style={{ backgroundColor: color }}
+                    onClick={() => setBrushColor(color)}
+                  />
+                ))}
+                <input 
+                  type="color" 
+                  value={brushColor} 
+                  onChange={(e) => setBrushColor(e.target.value)}
+                  className="w-8 h-8 rounded-full overflow-hidden border-none p-0"
+                />
+              </div>
             </div>
           </TabsContent>
         </Tabs>
