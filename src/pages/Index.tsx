@@ -5,9 +5,11 @@ import { showSuccess, showError } from '@/utils/toast';
 import { EditorSidebar } from '../components/editor/EditorSidebar';
 import { EditorToolbar } from '../components/editor/EditorToolbar';
 import { EditorProperties } from '../components/editor/EditorProperties';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 const Index = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [canvas, setCanvas] = useState<fabric.Canvas | null>(null);
   const [activeTool, setActiveTool] = useState('select');
   const [history, setHistory] = useState<string[]>([]);
@@ -16,13 +18,17 @@ const Index = () => {
   const [brushColor, setBrushColor] = useState('#000000');
   const [selectedObjectColor, setSelectedObjectColor] = useState('#000000');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const isMobile = useIsMobile();
 
   // Initialize Canvas
   useEffect(() => {
-    if (canvasRef.current) {
+    if (canvasRef.current && containerRef.current) {
+      const containerWidth = containerRef.current.clientWidth;
+      const containerHeight = containerRef.current.clientHeight;
+      
       const fabricCanvas = new fabric.Canvas(canvasRef.current, {
-        width: 800,
-        height: 600,
+        width: containerWidth > 800 ? 800 : containerWidth - 40,
+        height: containerHeight > 600 ? 600 : containerHeight - 40,
         backgroundColor: '#ffffff',
         isDrawingMode: false,
       });
@@ -54,8 +60,24 @@ const Index = () => {
         }
       });
 
+      // Handle window resize
+      const handleResize = () => {
+        if (containerRef.current && fabricCanvas) {
+          const newWidth = containerRef.current.clientWidth - 40;
+          const newHeight = containerRef.current.clientHeight - 40;
+          fabricCanvas.setDimensions({
+            width: newWidth > 800 ? 800 : newWidth,
+            height: newHeight > 600 ? 600 : newHeight
+          });
+          fabricCanvas.renderAll();
+        }
+      };
+
+      window.addEventListener('resize', handleResize);
+
       return () => {
         fabricCanvas.dispose();
+        window.removeEventListener('resize', handleResize);
       };
     }
   }, []);
@@ -88,7 +110,11 @@ const Index = () => {
       const data = f.target?.result;
       fabric.FabricImage.fromURL(data as string).then((img) => {
         canvas.clear();
-        img.scaleToWidth(canvas.width! * 0.8);
+        const scale = Math.min(
+          (canvas.width! * 0.8) / img.width!,
+          (canvas.height! * 0.8) / img.height!
+        );
+        img.scale(scale);
         canvas.add(img);
         canvas.centerObject(img);
         canvas.setActiveObject(img);
@@ -136,10 +162,11 @@ const Index = () => {
   const addText = () => {
     if (!canvas) return;
     const text = new fabric.IText('Type here...', {
-      left: 100,
-      top: 100,
+      left: 50,
+      top: 50,
       fontFamily: 'Arial',
       fill: brushColor,
+      fontSize: isMobile ? 20 : 40
     });
     canvas.add(text);
     canvas.setActiveObject(text);
@@ -149,26 +176,27 @@ const Index = () => {
   const addShape = (type: 'rect' | 'circle' | 'arrow') => {
     if (!canvas) return;
     let shape;
+    const size = isMobile ? 50 : 100;
     if (type === 'rect') {
       shape = new fabric.Rect({
-        left: 100,
-        top: 100,
+        left: 50,
+        top: 50,
         fill: brushColor,
-        width: 100,
-        height: 100,
+        width: size,
+        height: size,
       });
     } else if (type === 'circle') {
       shape = new fabric.Circle({
-        left: 100,
-        top: 100,
+        left: 50,
+        top: 50,
         fill: brushColor,
-        radius: 50,
+        radius: size / 2,
       });
     } else if (type === 'arrow') {
-      const path = 'M 0 0 L 50 0 M 50 0 L 40 -10 M 50 0 L 40 10';
+      const path = `M 0 0 L ${size} 0 M ${size} 0 L ${size - 10} -10 M ${size} 0 L ${size - 10} 10`;
       shape = new fabric.Path(path, {
-        left: 100,
-        top: 100,
+        left: 50,
+        top: 50,
         stroke: brushColor,
         strokeWidth: 4,
         fill: 'transparent',
@@ -245,7 +273,7 @@ const Index = () => {
   };
 
   return (
-    <div className="flex h-screen bg-zinc-50 dark:bg-zinc-950 overflow-hidden">
+    <div className="flex flex-col md:flex-row h-screen bg-zinc-50 dark:bg-zinc-950 overflow-hidden">
       <EditorSidebar 
         activeTool={activeTool}
         setActiveTool={setActiveTool}
@@ -258,7 +286,7 @@ const Index = () => {
         onUploadClick={() => fileInputRef.current?.click()}
       />
 
-      <main className="flex-1 flex flex-col">
+      <main className="flex-1 flex flex-col min-w-0">
         <EditorToolbar 
           undo={undo}
           redo={redo}
@@ -267,8 +295,8 @@ const Index = () => {
           handleDownload={handleDownload}
         />
 
-        <div className="flex-1 bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center p-8 overflow-auto">
-          <Card className="shadow-2xl overflow-hidden bg-white">
+        <div ref={containerRef} className="flex-1 bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center p-4 md:p-8 overflow-hidden">
+          <Card className="shadow-2xl overflow-hidden bg-white max-w-full max-h-full">
             <canvas ref={canvasRef} />
           </Card>
         </div>
