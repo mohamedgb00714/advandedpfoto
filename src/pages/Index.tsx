@@ -9,6 +9,7 @@ import {
   Circle, 
   MousePointer2, 
   Pencil,
+  Eraser,
   Trash2,
   Image as ImageIcon,
   Sun,
@@ -17,7 +18,8 @@ import {
   RotateCw,
   Type as TextIcon,
   Shapes,
-  ArrowUpRight
+  ArrowUpRight,
+  Wind
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -26,7 +28,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { Slider } from '@/components/ui/slider';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { showSuccess } from '@/utils/toast';
+import { showSuccess, showError } from '@/utils/toast';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 const Index = () => {
@@ -47,6 +49,7 @@ const Index = () => {
         width: 800,
         height: 600,
         backgroundColor: '#ffffff',
+        isDrawingMode: false,
       });
       setCanvas(fabricCanvas);
 
@@ -62,15 +65,17 @@ const Index = () => {
       
       fabricCanvas.on('selection:created', (e) => {
         const obj = e.selected?.[0];
-        if (obj && 'fill' in obj) {
-          setSelectedObjectColor(obj.fill as string);
+        if (obj) {
+          const color = (obj.get('fill') as string) || (obj.get('stroke') as string) || '#000000';
+          setSelectedObjectColor(color);
         }
       });
 
       fabricCanvas.on('selection:updated', (e) => {
         const obj = e.selected?.[0];
-        if (obj && 'fill' in obj) {
-          setSelectedObjectColor(obj.fill as string);
+        if (obj) {
+          const color = (obj.get('fill') as string) || (obj.get('stroke') as string) || '#000000';
+          setSelectedObjectColor(color);
         }
       });
 
@@ -82,12 +87,22 @@ const Index = () => {
 
   // Update brush settings
   useEffect(() => {
-    if (canvas && canvas.isDrawingMode) {
-      canvas.freeDrawingBrush = new fabric.PencilBrush(canvas);
-      canvas.freeDrawingBrush.width = brushSize;
-      canvas.freeDrawingBrush.color = brushColor;
+    if (canvas) {
+      if (activeTool === 'pencil') {
+        canvas.isDrawingMode = true;
+        canvas.freeDrawingBrush = new fabric.PencilBrush(canvas);
+        canvas.freeDrawingBrush.width = brushSize;
+        canvas.freeDrawingBrush.color = brushColor;
+      } else if (activeTool === 'eraser') {
+        canvas.isDrawingMode = true;
+        canvas.freeDrawingBrush = new fabric.PencilBrush(canvas);
+        canvas.freeDrawingBrush.width = brushSize;
+        canvas.freeDrawingBrush.color = '#ffffff'; // Simple eraser for white background
+      } else {
+        canvas.isDrawingMode = false;
+      }
     }
-  }, [canvas, brushSize, brushColor]);
+  }, [canvas, activeTool, brushSize, brushColor]);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -143,12 +158,6 @@ const Index = () => {
     }
   };
 
-  const setDrawingMode = (isDrawing: boolean) => {
-    if (!canvas) return;
-    canvas.isDrawingMode = isDrawing;
-    setActiveTool(isDrawing ? 'pencil' : 'select');
-  };
-
   const addText = () => {
     if (!canvas) return;
     const text = new fabric.IText('Type here...', {
@@ -160,7 +169,6 @@ const Index = () => {
     canvas.add(text);
     canvas.setActiveObject(text);
     setActiveTool('select');
-    setDrawingMode(false);
   };
 
   const addShape = (type: 'rect' | 'circle' | 'arrow') => {
@@ -182,7 +190,6 @@ const Index = () => {
         radius: 50,
       });
     } else if (type === 'arrow') {
-      // Simple arrow using a Path
       const path = 'M 0 0 L 50 0 M 50 0 L 40 -10 M 50 0 L 40 10';
       shape = new fabric.Path(path, {
         left: 100,
@@ -196,7 +203,6 @@ const Index = () => {
       canvas.add(shape);
       canvas.setActiveObject(shape);
       setActiveTool('select');
-      setDrawingMode(false);
     }
   };
 
@@ -211,13 +217,32 @@ const Index = () => {
   const changeObjectColor = (color: string) => {
     const activeObject = canvas?.getActiveObject();
     if (activeObject) {
-      if ('fill' in activeObject && activeObject.type !== 'path') {
-        activeObject.set('fill', color);
-      } else if ('stroke' in activeObject) {
+      if (activeObject.type === 'path' || activeObject.type === 'polyline') {
         activeObject.set('stroke', color);
+      } else {
+        activeObject.set('fill', color);
       }
       setSelectedObjectColor(color);
       canvas?.renderAll();
+      canvas?.fire('object:modified');
+    }
+  };
+
+  const applyFilter = (filterType: string) => {
+    const activeObject = canvas?.getActiveObject();
+    if (activeObject && activeObject.type === 'image') {
+      const img = activeObject as fabric.FabricImage;
+      img.filters = [];
+      if (filterType === 'grayscale') {
+        img.filters.push(new fabric.filters.Grayscale());
+      } else if (filterType === 'sepia') {
+        img.filters.push(new fabric.filters.Sepia());
+      }
+      img.applyFilters();
+      canvas?.renderAll();
+      showSuccess(`${filterType} filter applied!`);
+    } else {
+      showError("Please select an image to apply filters.");
     }
   };
 
@@ -231,7 +256,7 @@ const Index = () => {
               <Button 
                 variant={activeTool === 'select' ? 'default' : 'ghost'} 
                 size="icon"
-                onClick={() => setDrawingMode(false)}
+                onClick={() => setActiveTool('select')}
               >
                 <MousePointer2 className="h-5 w-5" />
               </Button>
@@ -244,12 +269,25 @@ const Index = () => {
               <Button 
                 variant={activeTool === 'pencil' ? 'default' : 'ghost'} 
                 size="icon"
-                onClick={() => setDrawingMode(true)}
+                onClick={() => setActiveTool('pencil')}
               >
                 <Pencil className="h-5 w-5" />
               </Button>
             </TooltipTrigger>
             <TooltipContent side="right">Draw</TooltipContent>
+          </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button 
+                variant={activeTool === 'eraser' ? 'default' : 'ghost'} 
+                size="icon"
+                onClick={() => setActiveTool('eraser')}
+              >
+                <Eraser className="h-5 w-5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="right">Eraser</TooltipContent>
           </Tooltip>
 
           <Tooltip>
@@ -364,6 +402,19 @@ const Index = () => {
           
           <TabsContent value="adjust" className="space-y-6 py-4">
             <div className="space-y-4">
+              <Label className="flex items-center gap-2">
+                <Wind className="h-4 w-4" /> Quick Filters
+              </Label>
+              <div className="grid grid-cols-2 gap-2">
+                <Button variant="outline" size="sm" onClick={() => applyFilter('grayscale')}>Grayscale</Button>
+                <Button variant="outline" size="sm" onClick={() => applyFilter('sepia')}>Sepia</Button>
+                <Button variant="outline" size="sm" onClick={() => applyFilter('none')}>Reset</Button>
+              </div>
+            </div>
+
+            <Separator />
+
+            <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <Label className="flex items-center gap-2">
                   <Sun className="h-4 w-4" /> Brightness
@@ -382,21 +433,11 @@ const Index = () => {
               </div>
               <Slider defaultValue={[0]} max={100} step={1} />
             </div>
-
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <Label className="flex items-center gap-2">
-                  <Palette className="h-4 w-4" /> Saturation
-                </Label>
-                <span className="text-xs text-muted-foreground">0%</span>
-              </div>
-              <Slider defaultValue={[0]} max={100} step={1} />
-            </div>
           </TabsContent>
 
           <TabsContent value="tools" className="space-y-6 py-4">
             <div className="space-y-4">
-              <Label>Object Color</Label>
+              <Label>Object Color (Fill/Stroke)</Label>
               <div className="flex flex-wrap gap-2">
                 {['#000000', '#ffffff', '#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff'].map((color) => (
                   <button
@@ -410,7 +451,7 @@ const Index = () => {
                   type="color" 
                   value={selectedObjectColor} 
                   onChange={(e) => changeObjectColor(e.target.value)}
-                  className="w-8 h-8 rounded-full overflow-hidden border-none p-0"
+                  className="w-8 h-8 rounded-full overflow-hidden border-none p-0 cursor-pointer"
                 />
               </div>
             </div>
@@ -443,7 +484,7 @@ const Index = () => {
                   type="color" 
                   value={brushColor} 
                   onChange={(e) => setBrushColor(e.target.value)}
-                  className="w-8 h-8 rounded-full overflow-hidden border-none p-0"
+                  className="w-8 h-8 rounded-full overflow-hidden border-none p-0 cursor-pointer"
                 />
               </div>
             </div>
