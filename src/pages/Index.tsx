@@ -5,24 +5,19 @@ import {
   Download, 
   Undo, 
   Redo, 
-  Crop, 
-  Type, 
   Square, 
   Circle, 
   MousePointer2, 
   Pencil,
-  Eraser,
   Trash2,
-  Layers,
-  Settings2,
   Image as ImageIcon,
   Sun,
   Contrast,
   Palette,
-  Maximize,
   RotateCw,
   Type as TextIcon,
-  Shapes
+  Shapes,
+  ArrowUpRight
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -31,7 +26,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { Slider } from '@/components/ui/slider';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { showSuccess, showError } from '@/utils/toast';
+import { showSuccess } from '@/utils/toast';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 const Index = () => {
@@ -42,6 +37,7 @@ const Index = () => {
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [brushSize, setBrushSize] = useState(5);
   const [brushColor, setBrushColor] = useState('#000000');
+  const [selectedObjectColor, setSelectedObjectColor] = useState('#000000');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Initialize Canvas
@@ -63,6 +59,20 @@ const Index = () => {
       fabricCanvas.on('object:added', saveHistory);
       fabricCanvas.on('object:modified', saveHistory);
       fabricCanvas.on('object:removed', saveHistory);
+      
+      fabricCanvas.on('selection:created', (e) => {
+        const obj = e.selected?.[0];
+        if (obj && 'fill' in obj) {
+          setSelectedObjectColor(obj.fill as string);
+        }
+      });
+
+      fabricCanvas.on('selection:updated', (e) => {
+        const obj = e.selected?.[0];
+        if (obj && 'fill' in obj) {
+          setSelectedObjectColor(obj.fill as string);
+        }
+      });
 
       return () => {
         fabricCanvas.dispose();
@@ -70,7 +80,7 @@ const Index = () => {
     }
   }, []);
 
-  // Update brush settings when they change
+  // Update brush settings
   useEffect(() => {
     if (canvas && canvas.isDrawingMode) {
       canvas.freeDrawingBrush = new fabric.PencilBrush(canvas);
@@ -137,11 +147,6 @@ const Index = () => {
     if (!canvas) return;
     canvas.isDrawingMode = isDrawing;
     setActiveTool(isDrawing ? 'pencil' : 'select');
-    if (isDrawing) {
-      canvas.freeDrawingBrush = new fabric.PencilBrush(canvas);
-      canvas.freeDrawingBrush.width = brushSize;
-      canvas.freeDrawingBrush.color = brushColor;
-    }
   };
 
   const addText = () => {
@@ -158,7 +163,7 @@ const Index = () => {
     setDrawingMode(false);
   };
 
-  const addShape = (type: 'rect' | 'circle') => {
+  const addShape = (type: 'rect' | 'circle' | 'arrow') => {
     if (!canvas) return;
     let shape;
     if (type === 'rect') {
@@ -169,18 +174,30 @@ const Index = () => {
         width: 100,
         height: 100,
       });
-    } else {
+    } else if (type === 'circle') {
       shape = new fabric.Circle({
         left: 100,
         top: 100,
         fill: brushColor,
         radius: 50,
       });
+    } else if (type === 'arrow') {
+      // Simple arrow using a Path
+      const path = 'M 0 0 L 50 0 M 50 0 L 40 -10 M 50 0 L 40 10';
+      shape = new fabric.Path(path, {
+        left: 100,
+        top: 100,
+        stroke: brushColor,
+        strokeWidth: 4,
+        fill: 'transparent',
+      });
     }
-    canvas.add(shape);
-    canvas.setActiveObject(shape);
-    setActiveTool('select');
-    setDrawingMode(false);
+    if (shape) {
+      canvas.add(shape);
+      canvas.setActiveObject(shape);
+      setActiveTool('select');
+      setDrawingMode(false);
+    }
   };
 
   const rotateObject = () => {
@@ -188,6 +205,19 @@ const Index = () => {
     if (activeObject) {
       activeObject.rotate((activeObject.angle || 0) + 90);
       canvas?.requestRenderAll();
+    }
+  };
+
+  const changeObjectColor = (color: string) => {
+    const activeObject = canvas?.getActiveObject();
+    if (activeObject) {
+      if ('fill' in activeObject && activeObject.type !== 'path') {
+        activeObject.set('fill', color);
+      } else if ('stroke' in activeObject) {
+        activeObject.set('stroke', color);
+      }
+      setSelectedObjectColor(color);
+      canvas?.renderAll();
     }
   };
 
@@ -244,6 +274,9 @@ const Index = () => {
                 </Button>
                 <Button variant="ghost" size="sm" onClick={() => addShape('circle')} className="justify-start">
                   <Circle className="h-4 w-4 mr-2" /> Circle
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => addShape('arrow')} className="justify-start">
+                  <ArrowUpRight className="h-4 w-4 mr-2" /> Arrow
                 </Button>
               </div>
             </PopoverContent>
@@ -362,6 +395,28 @@ const Index = () => {
           </TabsContent>
 
           <TabsContent value="tools" className="space-y-6 py-4">
+            <div className="space-y-4">
+              <Label>Object Color</Label>
+              <div className="flex flex-wrap gap-2">
+                {['#000000', '#ffffff', '#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff'].map((color) => (
+                  <button
+                    key={color}
+                    className={`w-8 h-8 rounded-full border ${selectedObjectColor === color ? 'ring-2 ring-primary' : ''}`}
+                    style={{ backgroundColor: color }}
+                    onClick={() => changeObjectColor(color)}
+                  />
+                ))}
+                <input 
+                  type="color" 
+                  value={selectedObjectColor} 
+                  onChange={(e) => changeObjectColor(e.target.value)}
+                  className="w-8 h-8 rounded-full overflow-hidden border-none p-0"
+                />
+              </div>
+            </div>
+
+            <Separator />
+
             <div className="space-y-4">
               <Label>Brush Size</Label>
               <Slider 
