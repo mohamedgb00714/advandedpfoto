@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { fabric } from 'fabric';
+import * as fabric from 'fabric';
 import { 
   Upload, 
   Download, 
@@ -67,7 +67,7 @@ const Index = () => {
     const reader = new FileReader();
     reader.onload = (f) => {
       const data = f.target?.result;
-      fabric.Image.fromURL(data as string, (img) => {
+      fabric.FabricImage.fromURL(data as string).then((img) => {
         canvas.clear();
         img.scaleToWidth(canvas.width! * 0.8);
         canvas.add(img);
@@ -96,7 +96,7 @@ const Index = () => {
   const undo = () => {
     if (historyIndex > 0 && canvas) {
       const prevIndex = historyIndex - 1;
-      canvas.loadFromJSON(history[prevIndex], () => {
+      canvas.loadFromJSON(history[prevIndex]).then(() => {
         canvas.renderAll();
         setHistoryIndex(prevIndex);
       });
@@ -106,7 +106,7 @@ const Index = () => {
   const redo = () => {
     if (historyIndex < history.length - 1 && canvas) {
       const nextIndex = historyIndex + 1;
-      canvas.loadFromJSON(history[nextIndex], () => {
+      canvas.loadFromJSON(history[nextIndex]).then(() => {
         canvas.renderAll();
         setHistoryIndex(nextIndex);
       });
